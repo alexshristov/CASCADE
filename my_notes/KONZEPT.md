@@ -1,8 +1,11 @@
 # Konzeptabgabe
 
 **Themenbereich**: LLM Performance Vergleich (Feature Realisation)
+
 **Werkzeug**: [CASCADE](https://github.com/TobiasKiecker/CASCADE)
+
 **Gruppenmitglieder**: Bruno Vincent Hemoura, Alexander Hristov, Caspar Moritz Klein
+
 **Gruppe**: 01 
 
 # Forschungsfrage
@@ -26,7 +29,7 @@ Vorgesehen ist ein leichtgewichtiges Metrics-Konzept, das pro CASCADE-Run strukt
 
 Die Erfassung soll möglichst nah an den relevanten Pipeline-Schritten ansetzen, ohne die bestehende CASCADE-Architektur stark zu verändern. Sinnvoll ist eine Kombination aus expliziten Events für fachliche Informationen und Zeitmessungen für größere Ausführungsblöcke. Kontextinformationen wie Phase, Methode oder Sample sollen automatisch mitgeführt werden, damit die Messdaten später einem konkreten Pipeline-Schritt zugeordnet werden können.
 
-TODO: <Loggingansatz>
+TODO: \<*Loggingansatz*\>
 
 # Skizze
 
