@@ -3,6 +3,7 @@ import subprocess
 
 from cascade.analysis.executor.AnalysisExecutor import AnalysisExecutor
 from cascade.utils.DockerizedWrapper import DockerizedWrapper
+from cascade.utils.Metrics import metric_context, time_block
 
 import re
 import os
@@ -34,59 +35,68 @@ class JavaExecutor(AnalysisExecutor):
             second a string containing any (compilation) errors that happened during execution or 'None' if none occurred
         """
 
-        with tempfile.TemporaryDirectory() as temp_dir:
-            try:
-                shutil.copytree(input_path, temp_dir, dirs_exist_ok=True)
+        fields = {
+            "sample_id": context.get("id"),
+            "method_name": context.get("signature", {}).get("name"),
+            "component": self.__class__.__name__,
+        }
+        with metric_context(**fields):
+            with tempfile.TemporaryDirectory() as temp_dir:
+                try:
+                    with time_block("java_project_copy"):
+                        shutil.copytree(input_path, temp_dir, dirs_exist_ok=True)
 
-            except Exception as e:
-                print("could not copy root path")
-                print(e)
+                except Exception as e:
+                    print("could not copy root path")
+                    print(e)
 
-            entry = os.path.join(temp_dir, "entry.json")
-            with open(entry, "w") as json_entry:
-                json.dump(context, json_entry)
+                entry = os.path.join(temp_dir, "entry.json")
+                with open(entry, "w") as json_entry:
+                    json.dump(context, json_entry)
 
-            my_path = os.path.dirname(__file__)
-            p = subprocess.run(
-                ["java", "-jar", os.path.join(my_path, "..", "..", "resources", "tools", "JavaExtractor.jar"),
-                 "mod",  #modification mode
-                 temp_dir,
-                 entry,
-                 code,
-                 tests],
-                capture_output=True,
-                text=True
-            )
+                my_path = os.path.dirname(__file__)
+                with time_block("java_modify", code_key=code, tests_key=tests):
+                    p = subprocess.run(
+                        ["java", "-jar", os.path.join(my_path, "..", "..", "resources", "tools", "JavaExtractor.jar"),
+                         "mod",  #modification mode
+                         temp_dir,
+                         entry,
+                         code,
+                         tests],
+                        capture_output=True,
+                        text=True
+                    )
 
-            os.remove(entry)
+                os.remove(entry)
 
-            with open(os.path.join(output_path, "log.txt"), "a") as file:
-                file.write(str(context["id"]) + "\n")
-                file.write(p.stdout + "\n")
-                file.write(p.stderr + "\n")
+                with open(os.path.join(output_path, "log.txt"), "a") as file:
+                    file.write(str(context["id"]) + "\n")
+                    file.write(p.stdout + "\n")
+                    file.write(p.stderr + "\n")
 
-            if p.stderr:
+                if p.stderr:
+                    if self.debug:
+                        print(p.stdout)
+                        print(p.stderr)
+                    return ([],[],[]), None
+
                 if self.debug:
                     print(p.stdout)
-                    print(p.stderr)
-                return ([],[],[]), None
 
-            if self.debug:
-                print(p.stdout)
+                dock_ex = DockerizedWrapper(debug=self.debug)
 
-            dock_ex = DockerizedWrapper(debug=self.debug)
+                test_command = (self.builder.test_pattern.replace('%t', "THIS_IS_A_UNIQUE_NAME_Test"))
+                dock_context = {
+                    "image" : self.builder.image,
+                    "directory" : temp_dir,
+                    "command" : f"ls; cat -n {context['code_file_path']}; cat -n {context['test_file_path']};"
+                                f"{test_command}",
+                    "eval_command" : "cat out",
+                    "eval_function" : self.builder.eval_function
+                }
 
-            test_command = (self.builder.test_pattern.replace('%t', "THIS_IS_A_UNIQUE_NAME_Test"))
-            dock_context = {
-                "image" : self.builder.image,
-                "directory" : temp_dir,
-                "command" : f"ls; cat -n {context['code_file_path']}; cat -n {context['test_file_path']};"
-                            f"{test_command}",
-                "eval_command" : "cat out",
-                "eval_function" : self.builder.eval_function
-            }
-
-            result = dock_ex.execute(dock_context, output_path)
+                with time_block("java_test_execution", code_key=code, tests_key=tests):
+                    result = dock_ex.execute(dock_context, output_path)
 
         return result
 
@@ -98,14 +108,16 @@ class JavaExecutor(AnalysisExecutor):
         """
         with tempfile.TemporaryDirectory() as temp_dir:
             try:
-                shutil.copytree(input_path, temp_dir, dirs_exist_ok=True)
+                with time_block("java_executor_setup_copy"):
+                    shutil.copytree(input_path, temp_dir, dirs_exist_ok=True)
 
             except Exception as e:
                 print("could not copy root path")
                 print(e)
 
             if self.builder:
-                return self.builder.set_up(temp_dir, input_path, input_path)
+                with time_block("builder_setup", builder=self.builder.__class__.__name__):
+                    return self.builder.set_up(temp_dir, input_path, input_path)
         return False
 
 
@@ -113,5 +125,5 @@ class JavaExecutor(AnalysisExecutor):
         context = data[0]
 
         if self.builder:
-            self.builder.tear_down(context)
-
+            with time_block("builder_teardown", builder=self.builder.__class__.__name__):
+                self.builder.tear_down(context)

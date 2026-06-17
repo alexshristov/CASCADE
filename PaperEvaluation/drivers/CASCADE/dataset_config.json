@@ -1,7 +1,7 @@
 {
 	"Extraction"    : { "name": "JavaExtraction",  "kwargs" : {}},
-	"CodeGenerator": { "name": "JavaCodeGenerator", "kwargs" : {"model": "gpt-4.1-mini"}, "temperature":0},
-	"TestGenerator": { "name": "MultiStepJavaTestGenerator", "kwargs" : {"model": "gpt-4.1-mini", "temperature": 0}},
+	"CodeGenerator": { "name": "JavaCodeGenerator", "kwargs" : {"model": "llm3", "base_url": "https://llm3-compute.cms.hu-berlin.de/v1", "temperature":0}},
+	"TestGenerator": { "name": "MultiStepJavaTestGenerator", "kwargs" : {"model": "llm3", "base_url": "https://llm3-compute.cms.hu-berlin.de/v1", "temperature": 0}},
 	"Analysis"      : { "name": "DatasetAnalysis",  "kwargs" : {}},
 	"Executor"      : { "name": "MavenJavaExecutor",   "kwargs" : {}}
 }

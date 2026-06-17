@@ -306,7 +306,9 @@ def plot_compare_drivers(
                 run_metrics.append(metrics)
 
             if not run_metrics:
-                series_to_ys[display].append(float("nan"))
+                series_to_ys[display]["center"].append(float("nan"))
+                series_to_ys[display]["min"].append(float("nan"))
+                series_to_ys[display]["max"].append(float("nan"))
                 continue
 
             num = aggregate_metrics_numeric(run_metrics)
@@ -444,6 +446,7 @@ def eval_cascade(gt, pd):
         results["f2p>0,p2f=0"] = "TP" if gt else "FP"
     else:
         results["f2p>0,p2f=0"] = "FN" if gt else "TN"
+    results["nop2f"] = results["f2p>0,p2f=0"]
 
     return results
 
@@ -715,7 +718,6 @@ if __name__ == '__main__':
             print(f"   {version}: {metrics_to_print}")
 
         print()
-
 
 
 

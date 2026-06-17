@@ -27,12 +27,12 @@ class JsonExtraction(Extraction):
         if os.path.exists(output_path):
             if "extracted.json" in os.listdir(output_path):
                 return load_json_from_path(os.path.join(output_path, "extracted.json"))
-
-        # Check if the input path points to a JSON file
         else:
             os.makedirs(output_path)
-            if input_path.endswith(".json") or input_path.endswith(".jsonl"):
-                return load_json_from_path(input_path)
+
+        # Check if the input path points to a JSON file
+        if input_path.endswith(".json") or input_path.endswith(".jsonl"):
+            return load_json_from_path(input_path)
             # # the standard human eval file has this ending and is technically not a legit json format
             # # but each line is a json entry (not comma seperated like a json list would be)
             # if ending == ".jsonl":
@@ -44,4 +44,3 @@ class JsonExtraction(Extraction):
 
         # Return an empty list if neither condition is met
         return []
-

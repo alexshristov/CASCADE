@@ -9,6 +9,7 @@ from cascade.generation.Generator import Generator
 from cascade.generation.executor.OpenAICaller import OpenAICaller
 from cascade.utils.JavaUtils import build_context, check_syntax, repair_helper_functions, get_repair_helper_functions, \
     build_signature
+from cascade.utils.Metrics import metric_context
 
 
 class MultiStepJavaTestGenerator(Generator):
@@ -89,7 +90,8 @@ class MultiStepJavaTestGenerator(Generator):
         ]
 
         chat_history.append(copy.deepcopy(prompt_step1))
-        response_step1a = self.prompt_executor.execute(prompt_step1).model_dump()
+        with metric_context(phase="generate_tests.phase_1_specs"):
+            response_step1a = self.prompt_executor.execute(prompt_step1).model_dump()
         chat_history.append(response_step1a)
 
         if not response_step1a["choices"]:
@@ -115,7 +117,8 @@ class MultiStepJavaTestGenerator(Generator):
 
         prompt_step1.append(prompt_json_list)
 
-        response_step1b = self.prompt_executor.execute(prompt_step1).model_dump()
+        with metric_context(phase="generate_tests.phase_1_json_tests"):
+            response_step1b = self.prompt_executor.execute(prompt_step1).model_dump()
         response_text = response_step1b["choices"][0]["message"]["content"]
 
 
@@ -136,13 +139,15 @@ class MultiStepJavaTestGenerator(Generator):
         # now we have a list of testable properties, we want to generate a testclass filled with these.
         prompt_step2 = self.build_prompt(context)
 
-        response_step2a = self.prompt_executor.execute(prompt_step2).model_dump()
+        with metric_context(phase="generate_tests.phase_2_test_class"):
+            response_step2a = self.prompt_executor.execute(prompt_step2).model_dump()
 
         prompt_step2.append(response_step2a["choices"][0]["message"])
 
         prompt_step2.append({"role": "user", "content": "Make sure that this class compiles without errors. Check if everything that is used is imported correctly and all exceptions are properly caught. Reply with the correct class only"})
 
-        response_step2b = self.prompt_executor.execute(prompt_step2).model_dump()
+        with metric_context(phase="generate_tests.phase_2_compile_check"):
+            response_step2b = self.prompt_executor.execute(prompt_step2).model_dump()
         chat_history.append(copy.deepcopy(prompt_step2))
         chat_history.append(response_step2b)
 

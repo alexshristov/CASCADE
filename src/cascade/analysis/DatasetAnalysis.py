@@ -2,6 +2,7 @@ import os
 import re
 import shutil
 import tempfile
+import time
 from datetime import datetime
 import traceback
 
@@ -13,6 +14,7 @@ from cascade.utils.JavaUtils import build_signature
 
 from cascade.generation.Generation import Generation
 from cascade.utils.Utils import load_json_from_path, save_dicts_list_to_json
+from cascade.utils.Metrics import record_metric_event, time_block
 
 from cascade.utils.DockerizedWrapper import DockerizedWrapper
 import xml.etree.ElementTree as ET
@@ -57,7 +59,8 @@ class DatasetAnalysis(Analysis):
         if d is None:
             return
 
-
+        method_start = time.perf_counter()
+        method_success = True
         try :
             # to avoid name clashes with existing tests we define a unique name for the test class
             test_class_real_name = d["test_file_path"].split("/")[-1].split(".")[0]
@@ -83,7 +86,8 @@ class DatasetAnalysis(Analysis):
                 print("      new tests already generated")
 
             print("      Set Up Test-Executor-Docker")
-            self.executor.set_up(data, input_path, output_path)
+            with time_block("executor_setup", item_count=len(data)):
+                self.executor.set_up(data, input_path, output_path)
 
 
             print("      execute new tests")
@@ -291,12 +295,23 @@ class DatasetAnalysis(Analysis):
                 print("result:" , output_string)
 
         except Exception as e:
+            method_success = False
             with open(os.path.join(output_path, "errors.txt"), "a") as f:
                 f.write(str(e) + "\n\n")
                 traceback.print_exc(file=f)
 
+        record_metric_event(
+            "analysis_method",
+            sample_id=d.get("id"),
+            method_name=d.get("signature", {}).get("name"),
+            index=0,
+            elapsed_seconds=time.perf_counter() - method_start,
+            success=method_success,
+            verdict=output_string,
+        )
 
-        self.executor.tear_down(data)
+        with time_block("executor_teardown", item_count=len(data)):
+            self.executor.tear_down(data)
 
     def evaluate(self, res):
         if res[0] == [] and res[1] == [] and res[2] == []:
@@ -421,5 +436,3 @@ class DatasetAnalysis(Analysis):
                 d["test_imports"].append("import org.junit.jupiter.api.*;\n")
 
         return d
-
-

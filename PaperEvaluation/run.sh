@@ -2,7 +2,7 @@
 
 SECONDS=0
 
-unzip dataset.zip
+unzip coreDataset.zip
 
 WORKING_DIR=$(pwd)
 
@@ -73,6 +73,12 @@ do
 				mv "result.txt" "../result_$driver.txt"
 				mv "log.txt" "../log_$driver.txt"
 				mv "errors.txt" "../errors_$driver.txt"	
+				if [ -f "metrics.summary.json" ]; then
+					mv "metrics.summary.json" "../metrics_summary_$driver.json"
+				fi
+				if [ -f "metrics.events.jsonl" ]; then
+					mv "metrics.events.jsonl" "../metrics_events_$driver.jsonl"
+				fi
 
 				cp "analyzed.json" "../analyzed.json"
 				#  -----------

@@ -2,6 +2,7 @@ import os
 import time
 from openai import OpenAI
 from cascade.generation.executor.LLMCaller import LLMCaller
+from cascade.utils.Metrics import extract_finish_reason, extract_response_usage, record_metric_event
 
 
 class OpenAICaller(LLMCaller):
@@ -24,6 +25,7 @@ class OpenAICaller(LLMCaller):
         self.delay = delay
         self.freq_penalty = freq_penalty
         self.model = model
+        self.base_url = base_url
 
         if dummy:
             self.client = None
@@ -46,6 +48,8 @@ class OpenAICaller(LLMCaller):
     def execute(self, prompt, **kwargs):
         attempt = 0
         while attempt < self.max_attempts:
+            attempt_number = attempt + 1
+            start = time.perf_counter()
             try:
                 response = self.client.chat.completions.create(
                     model=self.model,
@@ -55,13 +59,39 @@ class OpenAICaller(LLMCaller):
                     frequency_penalty=self.freq_penalty,
                     **kwargs,
                 )
+                elapsed = time.perf_counter() - start
+                usage = extract_response_usage(response)
+                record_metric_event(
+                    "llm_call",
+                    attempt=attempt_number,
+                    model=self.model,
+                    base_url=self.base_url,
+                    max_tokens=self.max_tokens,
+                    success=True,
+                    elapsed_seconds=elapsed,
+                    finish_reason=extract_finish_reason(response),
+                    **usage,
+                )
                 return response
 
             except Exception as e:
-                print(f"Generation attempt {attempt + 1} failed: {e}")
+                elapsed = time.perf_counter() - start
+                record_metric_event(
+                    "llm_call",
+                    attempt=attempt_number,
+                    model=self.model,
+                    base_url=self.base_url,
+                    max_tokens=self.max_tokens,
+                    success=False,
+                    elapsed_seconds=elapsed,
+                    error_type=type(e).__name__,
+                    error_message=str(e),
+                    input_tokens=0,
+                    output_tokens=0,
+                    total_tokens=0,
+                )
+                print(f"Generation attempt {attempt_number} failed: {e}")
                 attempt += 1
                 time.sleep(self.delay)
 
         raise Exception("Generation failed. because of repeated errors.")
-
-

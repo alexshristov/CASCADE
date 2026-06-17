@@ -2,6 +2,7 @@ import json
 import os
 import shutil
 import tempfile
+import time
 from datetime import datetime
 from tqdm import tqdm
 
@@ -12,6 +13,7 @@ from cascade.analysis.executor.ExecutionResults import ExecutionResults
 from cascade.generation.Generation import Generation
 from cascade.utils.Utils import save_dicts_list_to_json, load_json_from_path
 from cascade.utils.JavaUtils import build_signature
+from cascade.utils.Metrics import record_metric_event, time_block
 
 from cascade.utils.DockerizedWrapper import DockerizedWrapper
 import xml.etree.ElementTree as ET
@@ -63,17 +65,21 @@ class JavaTwoStepAnalysis(Analysis):
             print(f"loaded existing analyzed data with {len(data)} elements")
         else:
             # preparing/ finding out junit version etc.
-            data = self.prepare_data(data, input_path, output_path)
+            with time_block("analysis_prepare_data", item_count=len(data)):
+                data = self.prepare_data(data, input_path, output_path)
             save_dicts_list_to_json(data, os.path.join(output_path, "analyzed.json"))
 
 
         if not self.just_analyze:
                 # set up the executor
             print("setup executor mvn image")
-            self.executor.set_up(data, input_path, output_path)
+            with time_block("executor_setup", item_count=len(data)):
+                self.executor.set_up(data, input_path, output_path)
 
             time_start = datetime.now()
             for idx, d in enumerate(data):
+                method_start = time.perf_counter()
+                method_success = True
                 try:
                     # to avoid name clashes with existing tests we define a unique name for the test class
                     test_class_real_name = d["test_file_path"].split("/")[-1].split(".")[0]
@@ -282,7 +288,18 @@ class JavaTwoStepAnalysis(Analysis):
 
                 # end:  try
                 except Exception as e:
+                    method_success = False
                     d["verdict"] = f"Error during analysis: {e}"
+                finally:
+                    record_metric_event(
+                        "analysis_method",
+                        sample_id=d.get("id"),
+                        method_name=d.get("signature", {}).get("name"),
+                        index=idx,
+                        elapsed_seconds=time.perf_counter() - method_start,
+                        success=method_success,
+                        verdict=d.get("verdict"),
+                    )
 
                 # save every few steps
                 if idx % 10 == 0:
@@ -315,7 +332,8 @@ class JavaTwoStepAnalysis(Analysis):
             time_total = str(datetime.now() - time_start).split('.')[0]
             print(f"Finished analysis in {time_total}")
 
-            self.executor.tear_down(data)
+            with time_block("executor_teardown", item_count=len(data)):
+                self.executor.tear_down(data)
             #save final results
             save_dicts_list_to_json(data, os.path.join(output_path, "analyzed.json"))
             save_dicts_list_to_json(
@@ -614,5 +632,3 @@ class JavaTwoStepAnalysis(Analysis):
                     d["test_imports"].append("import org.junit.jupiter.api.*;\n")
 
         return data
-
-
