@@ -62,3 +62,10 @@ wheels/
 *.egg
 
 /tests/test_JavaExecution.py
+
+# Latex
+*.aux
+*latexmk
+*.fls
+*.log
+*.out
