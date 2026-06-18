@@ -7,6 +7,8 @@
 \usepackage{graphicx}
 \usepackage{geometry}
 \geometry{margin=2.5cm}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta, positioning, fit}
 
 \title{Konzeptabgabe}
 \date{}
@@ -91,19 +93,60 @@ sollen automatisch mitgeführt werden,
 damit die Messdaten später einem konkreten Pipeline-Schritt
 zugeordnet werden können.
 
-Es sollen Pipeline-weite Hilfsfunktionen eingeführt werden,
-welche von allen Komponenten genutzt werden können um
+Die aktuelle Architektur ist grob in Abbildung \ref{fig:pipeline-arch} dargestellt.
+Problem dabei ist, dass der Pipeline-context, also Informationen über Ein/ Ausgabepfad und Informationen über die einzelnen Komponenten
+nur innerhalb der Pipeline selbst vorhanden sind, bzw. über Funktionsparameter teilweise weitergegeben werden.
+Will man nun weitere Metriken hinzufügen, müssen die zu erhebenden Daten entweder direkt über
+den Ausgabepfad in eine Datei geschrieben werden oder über den
+Abhängigkeitsbaum nach oben propagiert werden. Dies ist wenig erweiterbar und wird schnell unübersichtlich.
+
+Es sollen deshalb Pipeline-weite Hilfsfunktionen eingeführt werden,
+welche von allen Komponenten gleichermaßen genutzt werden können um
 Events wie Fehler, Info-Nachrichten, LLM-Nutzungen oder
 Zeitverbrauche einheitlich in die gemeinsame Messung
 einzutragen, welche am Ende des Runs zusammengefasst wird.
 
-% -------------------------------------------------------
-\section{Skizze}
-
 \begin{figure}[h]
     \centering
-    \includegraphics[width=0.8\textwidth]{imgs/PXL_20260616_170314467.MP.jpg}
-    \caption{Skizze der Pipeline-Architektur}
+    \begin{tikzpicture}[
+        node distance=1.5cm and 2cm,
+        box/.style={draw, rounded corners, minimum width=2.5cm, minimum height=1cm, align=center},
+        put/.style={circle, draw, minimum size=0.6cm}
+    ]
+        \node[box] (cli) {CLI};
+        \node[box, right=of cli] (pipef) {Pipeline Factory};
+        \node[box, below=3.5cm of pipef] (filter) {Filter};
+        \node[box, left=of filter] (ex) {Extraction};
+        \node[box, right=of filter] (analysis) {Analysis};
+        \node[put, above=of ex, label=right:Repository] (repo-ex) {};
+        \node[put, above=of analysis, label=left:Repository] (repo-analysis) {};
+        \node[put, right=1cm of analysis, label=above:Results] (output) {};
+        
+        \node[draw, dashed, rounded corners,
+        fit=(repo-ex)(repo-analysis)(ex)(filter)(analysis)(output),
+        inner sep=12pt,
+        label={above left:Pipeline}] (pipeline-group) {};
+        
+        \node[box, below= of analysis] (generators) {Generators};
+        \node[box, below=1cm of generators] (code_gen) {Code Generator};
+        \node[box, left=of code_gen] (test_gen) {Test Generator};
+        \node[box, below=of test_gen] (llm-test) {LLM-Caller};
+        \node[box, below=of code_gen] (llm-code) {LLM-Caller};
+
+        \draw[-{Stealth}] (cli) -- node[above] {config} (pipef);
+        \draw[-{Stealth}] (pipef) -- node[right]{Pipeline context} (pipeline-group);
+        \draw[-{Stealth}] (repo-ex) -- (ex);
+        \draw[-{Stealth}] (repo-analysis) -- (analysis);
+        \draw[-{Stealth}] (ex) -- (filter);
+        \draw[-{Stealth}] (filter) -- (analysis);
+        \draw[-{Stealth}] (analysis) -- (output);
+        \draw[{Stealth}-{Stealth}] (analysis) -- (generators);
+        \draw[{Stealth}-{Stealth}] (generators) -- (test_gen);
+        \draw[{Stealth}-{Stealth}] (generators) -- (code_gen);
+        \draw[{Stealth}-{Stealth}] (test_gen) -- (llm-test);
+        \draw[{Stealth}-{Stealth}] (code_gen) -- (llm-code);
+    \end{tikzpicture}
+    \caption{\label{fig:pipeline-arch}Skizze der aktuellen Pipeline-Architektur}
 \end{figure}
 
 \end{document}
