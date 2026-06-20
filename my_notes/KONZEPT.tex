@@ -7,6 +7,7 @@
 \usepackage{graphicx}
 \usepackage{geometry}
 \geometry{margin=2.5cm}
+\usepackage[utf8]{inputenc}
 \usepackage{tikz}
 \usetikzlibrary{arrows.meta, positioning, fit}
 
@@ -127,11 +128,13 @@ einzutragen, welche am Ende des Runs zusammengefasst wird.
         inner sep=12pt,
         label={above left:Pipeline}] (pipeline-group) {};
         
-        \node[box, below= of analysis] (generators) {Generators};
+        \node[box, below left= of analysis] (generators) {Generators};
         \node[box, below=1cm of generators] (code_gen) {Code Generator};
-        \node[box, left=of code_gen] (test_gen) {Test Generator};
+        \node[box, left=1.5cm of code_gen] (test_gen) {Test Generator};
         \node[box, below=of test_gen] (llm-test) {LLM-Caller};
         \node[box, below=of code_gen] (llm-code) {LLM-Caller};
+        \node[box, below=of analysis] (executor) {Executor};
+        \node[box, below=1cm of executor] (java-ex) {Java Executor};
 
         \draw[-{Stealth}] (cli) -- node[above] {config} (pipef);
         \draw[-{Stealth}] (pipef) -- node[right]{Pipeline context} (pipeline-group);
@@ -145,6 +148,8 @@ einzutragen, welche am Ende des Runs zusammengefasst wird.
         \draw[{Stealth}-{Stealth}] (generators) -- (code_gen);
         \draw[{Stealth}-{Stealth}] (test_gen) -- (llm-test);
         \draw[{Stealth}-{Stealth}] (code_gen) -- (llm-code);
+        \draw[{Stealth}-{Stealth}] (analysis) -- (executor);
+        \draw[{Stealth}-{Stealth}] (executor) -- (java-ex);
     \end{tikzpicture}
     \caption{\label{fig:pipeline-arch}Skizze der aktuellen Pipeline-Architektur}
 \end{figure}
