@@ -54,13 +54,14 @@ class PipelineFactory:
             print(f"Error instantiating class '{class_name}': {e}")
             sys.exit(-1)
 
-    def build(self, pipeline_path, kwargs=None):
+    def build(self, pipeline_path, output_path, kwargs=None):
         """
         Builds a pipeline from a config file and optional keyword arguments.
         The config file is a JSON file containing the specific modules that should be used for each pipeline component.
         It should include Extraction, any of (CodeGenerator, TestGenerator, DocGenerator), Analysis and its Executor
 
         :param pipeline_path: The path to the config file.
+        :param output_path: Directory where output files and metrics will be written.
         """
         if not kwargs:
             kwargs = {"module_path": None, "Extraction": {}, "CodeGenerator": {}, "TestGenerator": {},
@@ -121,7 +122,18 @@ class PipelineFactory:
         kwargs_.update(kwargs["Analysis"])
         analysis = self.load_class(name, path, [generation, Execution(analysis_executor)], kwargs_)
 
-        pipeline = Pipeline(extraction, filter_, analysis, config)
+        if "MetricsRecorder" in config:
+            rec_cfg = config["MetricsRecorder"]
+            rec_name = rec_cfg["name"]
+            rec_path = rec_cfg.get("module_path", "cascade.metrics." + rec_name)
+            rec_kwargs = rec_cfg.get("kwargs", {})
+        else:
+            rec_name = "MetricsRecorder"
+            rec_path = "cascade.metrics.MetricsRecorder"
+            rec_kwargs = {}
+        recorder = self.load_class(rec_name, rec_path, [output_path], {"config_snapshot": config, **rec_kwargs})
+
+        pipeline = Pipeline(extraction, filter_, analysis, config, recorder)
 
         return pipeline
 

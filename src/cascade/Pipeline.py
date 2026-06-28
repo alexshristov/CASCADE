@@ -4,23 +4,27 @@ from cascade.extraction.Extraction import Extraction
 from cascade.filters.Filter import Filter
 from cascade.analysis.Analysis import Analysis
 from cascade.utils.Utils import load_json_from_path
-from cascade.utils.Metrics import MetricsRecorder, record_metric_event, reset_current_recorder, set_current_recorder, time_block
+from cascade.metrics.BaseMetricsRecorder import BaseMetricsRecorder
+from cascade.utils.Metrics import record_metric_event, reset_current_recorder, set_current_recorder, time_block
 
 
 class Pipeline():
-    def __init__(self, extraction: Extraction, _filter: Filter, analysis: Analysis, setup_config: dict):
+    def __init__(self, extraction: Extraction, _filter: Filter, analysis: Analysis, setup_config: dict,
+                 recorder: BaseMetricsRecorder):
         """
         The main pipeline object. Calls "extract" and "analyse" in an appropriate manner.
         is usually build through Pipeline_Factory
         :param extraction: the specific instantiated Extraction object that is used for extraction
         :param analysis: the specific instantiated analysis object
-         :param setup: a dictionary that contains the names of the specific instances used
-         for extraction, analysis and the objects inside of them,
+        :param setup_config: a dictionary that contains the names of the specific instances used
+         for extraction, analysis and the objects inside of them
+        :param recorder: metrics recorder instance created by PipelineFactory
         """
         self.extraction = extraction
         self._filter = _filter
         self.analysis = analysis
         self.setup_config = setup_config
+        self.recorder = recorder
 
     def execute(self, input_path, output_path) -> None:
         """
@@ -30,7 +34,7 @@ class Pipeline():
         These specific objects handle what the specific operations do and any things like temporary or
         intermediate saving, which type of analyses should be done and the generator that the analysis uses.
         """
-        recorder = MetricsRecorder(output_path, config_snapshot=self.setup_config)
+        recorder = self.recorder
         recorder_token = set_current_recorder(recorder)
         success = True
         try:

@@ -105,7 +105,7 @@ def run(args):
         print("kwargs", kwargs_)
 
     factory = PipelineFactory()
-    pipeline = factory.build(args.config_file, kwargs_)
+    pipeline = factory.build(args.config_file, args.output_path, kwargs_)
     pipeline.execute(args.input_path, args.output_path)
 
 
